@@ -15,6 +15,7 @@ import file_op as FO
 class WinuxServer(protocol.Protocol):
     def __init__(self, factory):
         self.factory = factory
+        self.cur_file = None
         
     def connectionMade(self):
         #self.client_id = self.factory.numConnections
@@ -28,25 +29,19 @@ class WinuxServer(protocol.Protocol):
 
     def dataReceived(self, data):
         #print data
-        (ok, length, packet_type, real_data, option) = winux_protocol.ParsePacket(data)
+        (ok, bytes_commited, command, option, body) = winux_protocol.ParsePacket(data)
         if ok:
-            if (option is None) or (cmp(option, 'None') == 0):
-                print 'Client says:', real_data
+            if cmp(command, 'msg') == 0:
+                print 'Client says: %s' % (body)
             else:
-                print 'Client says:', real_data, option
-            
-            if cmp(packet_type, winux_protocol.TYPE_MSG) == 0:
-                pass
-            elif cmp(packet_type, winux_protocol.TYPE_CMD) == 0:
-                self.handle_cmd(real_data, option)
-            else:
-                print 'Invalid packet type:', packet_type
-            if len(data) - length > 0:
-                self.dataReceived(data[length:])
+                self.handle_cmd(command, option, body)
+
+            if len(data) - bytes_commited > 0:
+                self.dataReceived(data[bytes_commited:])
         else:
             print 'Error data:\n', data
                 
-    def handle_cmd(self, cmd, option = None):
+    def handle_cmd(self, cmd, option = None, body = None):
         if cmp(cmd, 'pwd') == 0:
             cur_dir = os.getcwd()
             packet = 'Current directory is ' + cur_dir
@@ -96,7 +91,23 @@ class WinuxServer(protocol.Protocol):
                     packet = winux_protocol.PackMsg(packet)
                     self.transport.write(packet)
             self.handle_cmd('pwd')
-        
+        elif cmp(cmd, 'file_head') == 0:
+            if self.cur_file is not None and not self.cur_file.closed:
+                self.cur_file.close()
+            self.cur_file = open(body, 'w')
+            print 'Client uploading file %s ......' % body
+        elif cmp(cmd, 'file_data') == 0:
+            if self.cur_file is not None and not self.cur_file.closed:
+                self.cur_file.write(body)
+        elif cmp(cmd, 'file_tail') == 0:
+            if self.cur_file is not None and not self.cur_file.closed:
+                self.cur_file.write(body)
+                size = self.cur_file.tell()
+                if size < 1024: size = '%dBytes' % size
+                else:           size = '%dKB' % (size / 1024)
+                print 'Client uploaded file %s %s' % (self.cur_file.name, size)
+                self.cur_file.close()
+                
 class WinuxServerFactory(protocol.Factory):
     numConnections = 0
     def buildProtocol(self, addr):

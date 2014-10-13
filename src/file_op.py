@@ -4,6 +4,10 @@ from stat import ST_SIZE, ST_CTIME, ST_MTIME
 _FT_FOLDER  = 0
 _FT_FILE    = 1
 
+def get_file_name_from_full_path(fpath):
+    l = fpath.split(os.sep)
+    return l[-1]
+
 class FileInfo:
     path    = ''
     name    = ''

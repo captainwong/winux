@@ -43,6 +43,7 @@ class Handler:
                           self._dir.__name__[1:] : self._dir,
                           self._quit.__name__[1:] : self._quit,
                           self._cd.__name__[1:] : self._cd,
+                          self._push.__name__[1:] : self._push,
                           }
         
         self._options = {self._OPTION_ALL : 'Execute command for all files.', 
@@ -68,9 +69,11 @@ class Handler:
     def _recv_and_print(self):
         data = self._connection.recv()
         if data is not None:
-            (ok, length, packet_type, real_data, option) = winux_protocol.ParsePacket(data)
+            (ok, bytes_commited, command, option, body) = winux_protocol.ParsePacket(data)
             if ok:
-                print 'Winux-Server says: ', real_data, option if option is not None else ""
+                print 'Winux-Server says: %s %s %s' % (command, 
+                                                      option if option is not None else "",
+                                                      body if body is not None else "",)
             
     def handle_cmd(self, cmd, *args):
         try:
@@ -233,8 +236,50 @@ class Handler:
         else:
             print 'Invalid options.'
             
-        
-        
-        
+    def _push(self, *args):
+        """
+        Upload file(s) to current directory on server.
+        """
+        print '_push', args, len(args)
+        params = len(args[1])
+        ok = False
+        files = []
+        option = None
+        while True:
+            if params == 0:
+                tree = FO.init_file_tree(os.getcwd())
+                for f in tree.files:
+                    files.append(f.path)
+                ok = True
+            elif params == 1: 
+                if args[1][0].startswith('-'):
+                    break
+                fpath = os.path.join(os.getcwd(), args[1][0])
+                if not os.path.isfile(fpath):
+                    break
+                files.append(fpath)
+                ok = True
+            elif params >= 2:
+                opts = []
+                for param in args:
+                    if param.startswith('-'):
+                        opts.append(param)
+                if len(opts) > 1:
+                    break
+                option = opts[0]
+                args -= opts
+                for param in args:
+                    fpath = os.path.join(os.getcwd(), param)
+                    if not os.path.isfile(fpath):
+                        break
+                    files.append(fpath)
+                if params != len(files) + len(opts):
+                    break
+                ok = True
+            break
+        if not ok:
+            print 'Invalid options!'
+        else:
+            self._connection.send_files(files, option)
         
         

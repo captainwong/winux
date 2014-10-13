@@ -1,4 +1,7 @@
 import socket
+import winux_protocol as wp
+import file_op as FO
+import time
 
 _MODE_CLIENT = 0
 _MODE_SERVER = 1
@@ -45,6 +48,25 @@ class Client(_Connection):
             data = self._socket.recv(1024)
             return data
         return None
+    
+    def send_files(self, files, option = None):
+        if self._connection_established:
+            for fpath in files:
+                self._send_file(fpath, option)
+    
+    def _send_file(self, fpath, option = None):
+        fname = FO.get_file_name_from_full_path(fpath)
+        self._socket.sendall(wp.PackFileHead(fname, option))
+        fs = open(fpath, 'rb')
+        fdata = fs.read(1024)
+        while fdata:
+            time.sleep(0.1)
+            if len(fdata) < 1024:
+                self._socket.sendall(wp.PackFileData(fdata, True))
+            else:
+                self._socket.sendall(wp.PackFileData(fdata))
+            fdata = fs.read(1024)
+        fs.close()
         
 class Server(_Connection):
     def __init__(self):
