@@ -1,0 +1,5 @@
+SERVER_ADDR = '192.168.0.221'
+SERVER_PORT = 10021
+
+WINUX_SERVER = 'Winux-Server'
+WINUX_CLIENT = 'Winux-Client'
